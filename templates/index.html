@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Conan Package Search</title>
+
+    <style>
+        /* 设置全局字体和背景颜色 */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #E9ECEF;
+            color: #495057;
+        }
+
+        /* 标题样式 */
+        h1, h2 {
+            color: #343A40;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        /* 搜索表单样式 */
+        #search-form {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #FFFFFF;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 表单标签样式 */
+        #search-form label {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        /* 表单输入框和下拉菜单样式 */
+        #search-form input,
+        #search-form select {
+            display: block;
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 15px;
+            border: 1px solid #CED4DA;
+            border-radius: 4px;
+        }
+
+        /* 表单按钮样式 */
+        #search-form button {
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        /* 表单按钮悬停效果 */
+        #search-form button:hover {
+            background-color: #0056b3;
+        }
+
+        /* 搜索结果表格样式 */
+        #results-table {
+            max-width: 800px;
+            margin: 20px auto;
+            background-color: #FFFFFF;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-collapse: collapse;
+            overflow: hidden;
+        }
+
+        /* 表格头部和单元格样式 */
+        #results-table th,
+        #results-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #DEE2E6;
+        }
+
+        /* 表格头部背景颜色 */
+        #results-table th {
+            background-color: #F8F9FA;
+            font-weight: bold;
+        }
+
+        /* 表格交替行颜色 */
+        #results-table tr:nth-child(even) {
+            background-color: #F8F9FA;
+        }
+
+        #results-table tr:nth-child(odd) {
+            background-color: #FFFFFF;
+        }
+
+        /* 表格行悬停效果 */
+        #results-table tr:hover {
+            background-color: #F1F3F5;
+        }
+
+        /* 命令输出区域样式 */
+        #command-output, #command2-output {
+            max-width: 800px;
+            margin: 10px auto;
+            padding: 10px;
+            background-color: #FFFFFF;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            color: #495057;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Search Conan Packages</h1>
+    <form id="search-form">
+        <div>
+            <label for="profile_name">Profile Name:</label><br>
+            <select id="profile_name" name="profile_name" class="select2" required>
+                {% for profile in profiles %}
+                <option value="{{ profile }}">{{ profile }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label for="package_name">Package Name:</label><br>
+            <input type="text" id="package_name" name="package_name" value="vbs" required>
+        </div>
+
+        <div>
+            <label for="version">Version:</label><br>
+            <select id="version" name="version" required>
+                {% for version in versions %}
+                <option value="{{ version }}">{{ version }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label for="user_name">User Name:</label><br>
+            <input type="text" id="user_name" name="user_name" value="lvbs" required>
+        </div>
+
+        <div>
+            <label for="channel_name">Channel Name:</label><br>
+            <input type="text" id="channel_name" name="channel_name" value="stable" required>
+        </div>
+
+        <div>
+            <label for="remote_name">Remote Name:</label><br>
+            <input type="text" id="remote_name" name="remote_name" value="liconan-release-local" required>
+        </div>
+
+        <button type="submit">Search</button>
+    </form>
+
+    <h2>Search Results</h2>
+    <div id="command-output"></div>
+    <div id="command2-output"></div>
+    <table id="results-table" border="1">
+        <thead>
+            <tr>
+                <th>Recipe ID</th>
+                <th>Package ID</th>
+                <th>Options</th>
+                <th>Settings</th>
+                <th>Download</th>
+            </tr>
+        </thead>
+        <tbody id="results-body">
+            <!-- Results will be populated here -->
+        </tbody>
+    </table>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/get-versions')
+                .then(response => response.json())
+                .then(data => {
+                    const versionSelect = document.getElementById('version');
+                    data.versions.forEach(version => {
+                        const option = document.createElement('option');
+                        option.value = version;
+                        option.textContent = version;
+                        versionSelect.appendChild(option);
+                    });
+                });
+        });
+
+        document.getElementById('search-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            let formData = new FormData(this);
+
+            fetch('/search', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultsBody = document.getElementById('results-body');
+                resultsBody.innerHTML = '';
+
+                const commandOutput = document.getElementById('command-output');
+                commandOutput.textContent = 'Executed command: ' + (data.command || 'Command not found');
+                const commandOutput2 = document.getElementById('command2-output');
+                commandOutput2.textContent = 'Executed command: ' + (data.command2 || 'Command not found');
+
+                if(data.status === "success") {
+                    const raw_results = data.data; // e.g., a string with Conan search output
+                    const revision_id = data.revision_id;
+                    parseAndDisplayResults(raw_results, revision_id);
+                } else {
+                    let row = resultsBody.insertRow();
+                    let cell = row.insertCell();
+                    cell.colSpan = 3;
+                    cell.textContent = 'Error: ' + data.data;
+                }
+            });
+        });
+
+        function parseAndDisplayResults(raw_results, revision_id) {
+            const resultSections = raw_results.split('Package_ID: ');
+            const resultsBody = document.getElementById('results-body');
+            
+            resultSections.shift(); // Remove the first segment which is not a package
+
+            resultSections.forEach(section => {
+                const packageId = section.split('\n')[0].trim();
+                const options = extractAttributes(section, '[options]');
+                const settings = extractAttributes(section, '[settings]');
+
+                const package_name = document.getElementById('package_name').value;
+                const version = document.getElementById('version').value;
+                const user_name = document.getElementById('user_name').value;
+                const channel_name = document.getElementById('channel_name').value;
+                const remote_name = document.getElementById('remote_name').value;
+                const downloadLink = `https://artifactory.ep.chehejia.com/ui/repos/tree/General/${remote_name}/${user_name}/${package_name}/${version}/${channel_name}/${revision_id}/package/${packageId}`;
+
+                let row = resultsBody.insertRow();
+                row.insertCell().innerHTML = revision_id;
+                row.insertCell().innerHTML = packageId;
+                row.insertCell().innerHTML = options;
+                row.insertCell().innerHTML = settings;
+                row.insertCell().innerHTML = `<a href="${downloadLink}" target="_blank">${downloadLink}</a>`;
+            });
+        }
+
+        function extractAttributes(section, attributeMarker) {
+            const attributeStart = section.indexOf(attributeMarker);
+            if (attributeStart === -1) return 'N/A';
+
+            let attributes = '';
+            const lines = section.slice(attributeStart).split('\n');
+            for (let i = 1; i < lines.length; i++) {
+                if (lines[i].startsWith('[')) break; // Stop if we reach a new section
+                attributes += lines[i].trim() + '<br/>';
+            }
+            return attributes.trim();
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // 初始化 select2
+            $('#profile_name').select2({
+                placeholder: '搜索并选择 Profile...',
+                allowClear: true,
+                width: '100%',
+                language: {
+                    noResults: function() {
+                        return "未找到匹配的 Profile";
+                    },
+                    searching: function() {
+                        return "搜索中...";
+                    }
+                }
+            });
+
+            // 添加搜索框样式
+            const searchStyle = `
+                .select2-container--default .select2-search--dropdown .select2-search__field {
+                    padding: 8px;
+                    border: 1px solid #CED4DA;
+                    border-radius: 4px;
+                    width: 100%;
+                }
+                .select2-container--default .select2-results__option--highlighted[aria-selected] {
+                    background-color: #007BFF;
+                    color: white;
+                }
+                .select2-container--default .select2-selection--single {
+                    height: 38px;
+                    padding: 6px;
+                    border: 1px solid #CED4DA;
+                }
+                .select2-container--default .select2-selection--single .select2-selection__arrow {
+                    height: 36px;
+                }
+            `;
+
+            // 将样式添加到页面
+            const styleElement = document.createElement('style');
+            styleElement.textContent = searchStyle;
+            document.head.appendChild(styleElement);
+        });
+    </script>
+</body>
+</html>
